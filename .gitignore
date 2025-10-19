@@ -1,0 +1,12 @@
+# Ignore everything
+*
+
+# But don't ignore directories, so Git can traverse them
+!*/
+
+# Explicitly include these files and folders
+!**/*.sh
+!**/.env*
+!**/.gitignore
+!**/compose.yaml
+!**/Dockerfile

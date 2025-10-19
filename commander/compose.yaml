@@ -1,0 +1,21 @@
+services:
+  commander:
+    container_name: commander
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: local/commander:latest
+    restart: unless-stopped
+    #user: "1026:100"
+    volumes:
+      - git_data:/mnt/.git
+      - /volume1/docker:/mnt/docker
+    secrets:
+      - id_ed25519_github
+
+volumes:
+  git_data:
+
+secrets:
+  id_ed25519_github:
+    file: /volume1/homes/dsm_admin/.ssh/id_ed25519_github

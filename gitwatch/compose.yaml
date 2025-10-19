@@ -1,0 +1,18 @@
+services:
+  gitwatch-volume1-docker:
+    container_name: gitwatch-volume1-docker
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: local/gitwatch:dfdd3bd
+    restart: unless-stopped
+    # Adjust user/group as needed to match host permissions
+    user: "1026:100"
+    volumes:
+      - /volume1/docker:/mnt/repo
+    secrets:
+      - id_ed25519_github
+
+secrets:
+  id_ed25519_github:
+    file: /volume1/homes/dsm_admin/.ssh/id_ed25519_github

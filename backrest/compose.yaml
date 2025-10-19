@@ -1,0 +1,20 @@
+services:
+  backrest:
+    image: garethgeorge/backrest:latest
+    container_name: backrest
+    hostname: backrest
+    volumes:
+      - ./data:/data
+      - ./config:/config
+      - ./cache:/cache
+      - /volume1/ds215p/restic_repos:/repos # [optional] mount repos if using local storage, not necessary for remotes e.g. B2, S3, etc.
+      #- /MY-BACKUP-DATA:/userdata # [optional] mount local paths to backup here.
+      - /volume1/ds215p/default_storage/Fotos & Videos:/userdata/default_storage/Fotos & Videos
+    environment:
+      - BACKREST_DATA=/data # path for backrest data. restic binary and the database are placed here.
+      - BACKREST_CONFIG=/config/config.json # path for the backrest config file.
+      - XDG_CACHE_HOME=/cache # path for the restic cache which greatly improves performance.
+      - TZ=Europe/Berlin # set the timezone for the container, used as the timezone for cron jobs.
+    restart: unless-stopped
+    ports:
+      - 9898:9898
