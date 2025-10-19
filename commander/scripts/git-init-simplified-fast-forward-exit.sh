@@ -1,56 +1,63 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-: "${REPO_DIR:=/mnt/docker}"
-: "${GIT_DIR:=/mnt/.git}"
+# Config
+: "${REPO_DIR:=/mnt/docker}"            # working tree (no .git here)
+: "${GIT_DIR:=/mnt/.git}"               # repo storage (named volume)
 : "${BRANCH:=main}"
 : "${REMOTE:=origin}"
 : "${REMOTE_URL:=git@github.com:mdjdev/redesigned-octo-fishstick.git}"
 : "${SSH_KEY:=/run/secrets/id_ed25519_github}"
 : "${COMMIT_MESSAGE:=Apply local changes after remote sync}"
 
+# Operate with explicit repo/work tree
 export GIT_DIR="$GIT_DIR"
 export GIT_WORK_TREE="$REPO_DIR"
 
-# Init once
-if [ ! -d "$GIT_DIR/objects" ]; then
-  git init -b "$BRANCH"
-fi
+cd /
 
-# Basic config
+# Ensure repo exists
+[ -d "$GIT_DIR" ] || { echo "$GIT_DIR must exist"; exit 3; }
+[ -d "$GIT_DIR/objects" ] || git init -b "$BRANCH"
+
+# Baseline config
 git config user.name "gitwatch"
 git config user.email "gitwatch@dsm.local"
 git config core.sshCommand "ssh -i $SSH_KEY -F /dev/null"
 git config commit.gpgsign false
-git config pull.ff only  # enforce fast-forward-only pulls [web:32][web:29]
+git config pull.ff only     # refuse non-FF pulls (safer default)
+git config push.ff only     # refuse non-FF pushes
 
-# Ensure/normalize remote
+# Remote setup
 if git remote get-url "$REMOTE" >/dev/null 2>&1; then
   git remote set-url "$REMOTE" "$REMOTE_URL"
 else
   git remote add "$REMOTE" "$REMOTE_URL"
 fi
 
-# Ensure branch
+# Ensure branch exists and is active
 if git rev-parse --verify "$BRANCH" >/dev/null 2>&1; then
   git checkout -f "$BRANCH"
 else
   git checkout -b "$BRANCH"
 fi
 
-# 1) Fetch remote refs (no working-tree changes)
-git fetch --prune "$REMOTE" "$BRANCH"  # safe; updates refs only [web:29]
+# Fetch remote refs only (no working tree changes)
+git fetch --prune "$REMOTE" "$BRANCH"  # safe metadata update
 
-# 2) Fast-forward only to remote if possible; aborts on divergence and leaves local untouched
+# Attempt fast-forward update only; exit if not fast-forwardable
 if git rev-parse --verify "refs/remotes/$REMOTE/$BRANCH" >/dev/null 2>&1; then
-  git merge --ff-only "$REMOTE/$BRANCH"  # fails if not fast-forwardable [web:25][web:32]
+  if ! git merge --ff-only "$REMOTE/$BRANCH"; then  # fails on divergence, leaves files unchanged
+    echo "Remote diverged; leaving local as-is."
+    exit 0
+  fi
 fi
 
-# 3) Commit local changes (if any)
+# Commit local changes (if any)
 if [ -n "$(git status --porcelain)" ]; then
   git add -A
   git commit -m "$COMMIT_MESSAGE"
 fi
 
-# 4) Push (fast-forward only by default); creates upstream if missing
-git push --set-upstream "$REMOTE" "$BRANCH"  # rejected if remote is ahead/diverged [web:27][web:29]
+# Push fast-forward only; creates remote branch if missing, otherwise fails if not FF
+git push --set-upstream "$REMOTE" "$BRANCH"  # governed by push.ff=only
