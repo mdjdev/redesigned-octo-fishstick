@@ -150,14 +150,17 @@ if ! git rev-parse --verify HEAD >/dev/null 2>&1; then
   # 3) Rebuild the index from the remote tree (index-only; do not write work tree)
   git read-tree -m "$REMOTE/$BRANCH"
 
-  # 4) Policy: if tracked files differ from remote, do nothing (avoid creating hard-to-merge commits)
+  # 4) 
+  git branch --set-upstream-to="$REMOTE/$BRANCH" "$BRANCH"
+
+  # 5) Policy: if tracked files differ from remote, do nothing (avoid creating hard-to-merge commits)
   if ! git diff --quiet; then
     echo "Differences between working tree and remote-tracked content detected."
     echo "Per policy, not auto-committing; resolve manually or let gitwatch handle additive changes only."
     exit 0
   fi
 
-  # 5) Optionally stage only untracked additions (purely additive)
+  # 6) Optionally stage only untracked additions (purely additive)
   #    Comment out if you prefer to let gitwatch perform staging on its own.
   # git ls-files --others --exclude-standard -z | xargs -0 -r git add
 
