@@ -21,3 +21,4 @@ volumes:
 secrets:
   id_ed25519_github:
     file: /volume1/homes/dsm_admin/.ssh/id_ed25519_github
+    
