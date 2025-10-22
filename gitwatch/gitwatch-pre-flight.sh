@@ -150,7 +150,7 @@ if ! git rev-parse --verify HEAD >/dev/null 2>&1; then
   # 3) Rebuild the index from the remote tree (index-only; do not write work tree)
   git read-tree -m "$REMOTE/$BRANCH"
 
-  # 4) 
+  # 4) Set tracking for the local branch (records origin/main as upstream; affects config only, not index/work tree)
   git branch --set-upstream-to="$REMOTE/$BRANCH" "$BRANCH"
 
   # 5) Policy: if tracked files differ from remote, do nothing (avoid creating hard-to-merge commits)
