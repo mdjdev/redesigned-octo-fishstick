@@ -177,3 +177,4 @@ fi
 # Local is at/after remote (fast-forward push guaranteed). Safe to proceed.
 echo "Sync check passed: local contains '$upstream'. Ready to push."
 exit 0
+
