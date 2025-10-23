@@ -160,10 +160,6 @@ if ! git rev-parse --verify HEAD >/dev/null 2>&1; then
     exit 0
   fi
 
-  # 6) Optionally stage only untracked additions (purely additive)
-  #    Comment out if you prefer to let gitwatch perform staging on its own.
-  # git ls-files --others --exclude-standard -z | xargs -0 -r git add
-
   # Done aligning; from here, gitwatch can safely commit/push additive changes.
   echo "Aligned HEAD and index to $upstream without modifying files."
   exit 0
