@@ -157,7 +157,7 @@ if ! git rev-parse --verify HEAD >/dev/null 2>&1; then
 
   if git status --porcelain | grep -q .; then
     # Done aligning; but pre-flight needs to commit a baseline before gitwatch can safely commit/push additive changes.
-    echo 
+    echo "NOTE: Changes detected, will need to commit a baseline."
   else
     # Done aligning; from here, gitwatch can safely commit/push additive changes.
     exit 0
