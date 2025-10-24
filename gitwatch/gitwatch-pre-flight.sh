@@ -121,7 +121,7 @@ fi
 
 # Always fetch first; if this fails, we cannot reason about safety.
 if ! git fetch "$REMOTE" "$BRANCH" >/dev/null 2>&1; then
-  echo "Error: Unable to fetch '$BRANCH' from remote '$REMOTE' (network/auth/url?)" >&2
+  echo "ERROR: Unable to fetch '$BRANCH' from remote '$REMOTE' (network/auth/url?)" >&2
   # Do not assume this is first-push; without fetch, we cannot verify remote state.
   exit 1
 fi
@@ -141,36 +141,57 @@ fi
 if ! git rev-parse --verify HEAD >/dev/null 2>&1; then
   echo "Local repository has no commits; aligning to $upstream without overwriting files..."
 
-  # 1) Point the local branch ref to the remote tip (metadata-only)
-  git update-ref "refs/heads/$BRANCH" "refs/remotes/$REMOTE/$BRANCH"
+  # 1) Point the local branch ref to the remote tip (metadata-only).
+  git update-ref "refs/heads/$BRANCH" "$upstream_ref"
 
-  # 2) Make HEAD point to that branch (no checkout side effects)
+  # 2) Make HEAD point to that branch (no checkout side effects).
   git symbolic-ref HEAD "refs/heads/$BRANCH"
 
-  # 3) Rebuild the index from the remote tree (index-only; do not write work tree)
-  git read-tree -m "$REMOTE/$BRANCH"
+  # 3) Rebuild the index from the remote tree (index-only; do not write work tree).
+  git read-tree -m "$upstream"
 
-  # 4) Set tracking for the local branch (records origin/main as upstream; affects config only, not index/work tree)
-  git branch --set-upstream-to="$REMOTE/$BRANCH" "$BRANCH"
+  # 4) Set tracking for the local branch (records origin/main as upstream; affects config only, not index/work tree).
+  git branch --set-upstream-to="$upstream" "$BRANCH"
 
-  # 5) Policy: if tracked files differ from remote, do nothing (avoid creating hard-to-merge commits)
-  if ! git diff --quiet; then
-    echo "Differences between working tree and remote-tracked content detected."
-    echo "Per policy, not auto-committing; resolve manually or let gitwatch handle additive changes only."
+  echo "Aligned HEAD and index to $upstream without modifying files."
+
+  if git status --porcelain | grep -q .; then
+    # Done aligning; but pre-flight needs to commit a baseline before gitwatch can safely commit/push additive changes.
+    echo 
+  else
+    # Done aligning; from here, gitwatch can safely commit/push additive changes.
     exit 0
   fi
-
-  # Done aligning; from here, gitwatch can safely commit/push additive changes.
-  echo "Aligned HEAD and index to $upstream without modifying files."
-  exit 0
 fi
 
-# From here both local and remote have commits. Ensure local contains remote.
-# If remote is not an ancestor of local, local is behind -> do nothing (not safe).
-if ! git merge-base --is-ancestor "$upstream" HEAD 2>/dev/null; then
-  echo "Local branch is behind '$upstream' (remote has commits not in local)." >&2
-  echo "Per policy, doing nothing: resolve manually (pull/rebase/merge) and retry." >&2
-  exit 1
+# If both local and remote have commits, ensure local contains remote.
+if git rev-parse --verify HEAD >/dev/null 2>&1; then
+  # If remote is not an ancestor of local, local is behind -> do nothing (not safe).
+  if ! git merge-base --is-ancestor "$upstream" HEAD 2>/dev/null; then
+    echo "WARNING: Local branch is behind '$upstream' (remote has commits not in local)."
+    echo "Per policy, doing nothing: resolve manually (pull/rebase/merge) and retry."
+    exit 1
+  fi
+fi
+
+# If working tree differs from the remote-tracked content, push a baseline commit.
+if git status --porcelain | grep -q .; then
+  echo "Differences between working tree and remote-tracked content detected; creating baseline commit."
+
+  # Stage everything (tracked + untracked; deletions, renames, and new files).
+  git add -A
+
+  # Create a time-stamped baseline commit
+  git commit -m "$(date '+%Y-%m-%d %H:%M:%S') | auto-commit baseline in pre-flight"
+
+  # Push non-interactively; fast-forward-only is enforced by config (push.ff=only).
+  git push "$REMOTE" "$BRANCH" || {
+    echo "ERROR: push failed; baseline commit created locally but not pushed."
+    exit 1
+  }
+
+  echo "Baseline commit pushed to $upstream; starting Gitwatch on a clean slate."
+  exit 0
 fi
 
 # Local is at/after remote (fast-forward push guaranteed). Safe to proceed.
