@@ -194,5 +194,5 @@ if git status --porcelain | grep -q .; then
 fi
 
 # Local is at/after remote (fast-forward push guaranteed). Safe to proceed.
-echo "Sync check finished: local aligned with '$upstream'; Ready start Gitwatch."
+echo "Sync check finished: local aligned with '$upstream'; ready start Gitwatch."
 exit 0
