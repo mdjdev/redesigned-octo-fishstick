@@ -190,10 +190,9 @@ if git status --porcelain | grep -q .; then
     exit 1
   }
 
-  echo "Baseline commit pushed to $upstream; starting Gitwatch on a clean slate."
-  exit 0
+  echo "Baseline commit pushed to '$upstream'; Gitwatch will start on a clean slate."
 fi
 
 # Local is at/after remote (fast-forward push guaranteed). Safe to proceed.
-echo "Sync check passed: local contains '$upstream'. Ready to push."
+echo "Sync check finished: local aligned with '$upstream'; Ready start Gitwatch."
 exit 0
