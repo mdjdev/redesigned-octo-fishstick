@@ -45,14 +45,14 @@ export GIT_WORK_TREE="$REPO_DIR"
 
 # Verify SSH key exists
 if [ ! -f "$SSH_KEY" ]; then
-  echo "Error: SSH key not found at $SSH_KEY" >&2
+  echo "Error: SSH key not found at $SSH_KEY"
   exit 1
 fi
 
 # Ensure SSH key has restrictive permissions
 if [ "$(stat -c %a -- "$SSH_KEY")" != 600 ]; then 
-  echo "Error: SSH key at $SSH_KEY has mismatching permissions or ownership." >&2
-  echo "Hint: ensure the key is owned by the running user and has mode 600, or supply a valid secret." >&2
+  echo "Error: SSH key at $SSH_KEY has mismatching permissions or ownership."
+  echo "Hint: ensure the key is owned by the running user and has mode 600, or supply a valid secret."
   exit 1
 fi
 
@@ -121,7 +121,7 @@ fi
 
 # Always fetch first; if this fails, we cannot reason about safety.
 if ! git fetch "$REMOTE" "$BRANCH" >/dev/null 2>&1; then
-  echo "ERROR: Unable to fetch '$BRANCH' from remote '$REMOTE' (network/auth/url?)" >&2
+  echo "ERROR: Unable to fetch '$BRANCH' from remote '$REMOTE' (network/auth/url?)"
   # Do not assume this is first-push; without fetch, we cannot verify remote state.
   exit 1
 fi
