@@ -182,7 +182,7 @@ if git status --porcelain | grep -q .; then
   git add -A
 
   # Create a time-stamped baseline commit
-  git commit -m "$(date '+%Y-%m-%d %H:%M:%S') | auto-commit baseline in pre-flight"
+  git commit -m "pre-flight: commit baseline ($(date '+%Y-%m-%d %H:%M:%S'))"
 
   # Push non-interactively; fast-forward-only is enforced by config (push.ff=only).
   git push "$REMOTE" "$BRANCH" || {
