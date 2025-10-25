@@ -11,7 +11,7 @@ services:
     restart: no
     volumes:
       - git_data:/mnt/.git
-      - /volume1/docker:/mnt/repo
+      - /volume1/docker:/mnt/repo:ro
     secrets:
       - id_ed25519_github
 
