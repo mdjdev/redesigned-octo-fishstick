@@ -44,3 +44,5 @@ ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 # ENTRYPOINT ["/usr/local/bin/gitwatch"]
 
 CMD [ "-r", "origin", "-b", "main", "-R", "-m", "gitwatch: commit on change (%d)", "-g", "/mnt/.git", "/mnt/repo" ]
+
+
