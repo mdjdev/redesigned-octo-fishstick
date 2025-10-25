@@ -1,4 +1,13 @@
+FROM alpine:3.22 AS tzstage
+
+RUN apk add --no-cache tzdata
+
+
+
 FROM alpine:3.22
+
+COPY --from=tzstage /usr/share/zoneinfo/Europe/Berlin /usr/share/zoneinfo/Europe/Berlin
+RUN ln -snf /usr/share/zoneinfo/Europe/Berlin /etc/localtime && echo Europe/Berlin > /etc/timezone
 
 RUN apk add --no-cache \
       bash \
