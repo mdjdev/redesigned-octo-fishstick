@@ -24,6 +24,8 @@
 
 set -euo pipefail
 
+echo "Start pre-flight."
+
 ################################################################################
 # Configuration
 ################################################################################
@@ -35,6 +37,13 @@ set -euo pipefail
 : "${REMOTE_URL:=git@github.com:mdjdev/redesigned-octo-fishstick.git}"
 : "${SSH_KEY:=/run/secrets/id_ed25519_github}"
 
+ echo "DEBUG: REPO_DIR=${REPO_DIR}"
+ echo "DEBUG: GIT_DIR=${GIT_DIR}"
+ echo "DEBUG: REMOTE=${REMOTE}"
+ echo "DEBUG: BRANCH=${BRANCH}"
+ echo "DEBUG: REMOTE_URL=${REMOTE_URL}"
+ echo "DEBUG: SSH_KEY=${SSH_KEY}"
+
 # Export Git environment variables to use separated directory layout
 export GIT_DIR="$GIT_DIR"
 export GIT_WORK_TREE="$REPO_DIR"
@@ -45,7 +54,7 @@ export GIT_WORK_TREE="$REPO_DIR"
 
 # Verify SSH key exists
 if [ ! -f "$SSH_KEY" ]; then
-  echo "Error: SSH key not found at $SSH_KEY"
+  echo "Error: SSH key not found at $SSH_KEY."
   exit 1
 fi
 
@@ -55,6 +64,8 @@ if [ "$(stat -c %a -- "$SSH_KEY")" != 600 ]; then
   echo "Hint: ensure the key is owned by the running user and has mode 600, or supply a valid secret."
   exit 1
 fi
+
+echo "SSH key ${SSH_KEY} is available and has restrictive permissions."
 
 # Probe GitHub SSH auth (non-interactive)
 set +e
@@ -67,12 +78,14 @@ ssh -T git@github.com \
 status=$?
 set -e
 
-if [ "$status" -eq 255 ]; then
+if [ "$status" -eq 1 ]; then
+  echo "Successfully authenticated to GitHub via SSH."
+elif [ "$status" -eq 255 ]; then
   echo "SSH authentication to GitHub failed."
   exit 1
-elif [ "$status" -ne 1 ]; then
+else
   echo "Unexpected SSH status: $status"
-  exit 1
+  exit 2
 fi
 
 ################################################################################
