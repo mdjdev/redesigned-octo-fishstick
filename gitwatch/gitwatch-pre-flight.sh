@@ -52,13 +52,13 @@ export GIT_WORK_TREE="$REPO_DIR"
 # SSH Validation
 ################################################################################
 
-# Verify SSH key exists
+# Verify SSH key exists.
 if [ ! -f "$SSH_KEY" ]; then
   echo "Error: SSH key not found at $SSH_KEY."
   exit 1
 fi
 
-# Ensure SSH key has restrictive permissions
+# Ensure SSH key has restrictive permissions.
 if [ "$(stat -c %a -- "$SSH_KEY")" != 600 ]; then 
   echo "Error: SSH key at $SSH_KEY has mismatching permissions or ownership."
   echo "Hint: ensure the key is owned by the running user and has mode 600, or supply a valid secret."
@@ -67,7 +67,7 @@ fi
 
 echo "SSH key ${SSH_KEY} is available and has restrictive permissions."
 
-# Probe GitHub SSH auth (non-interactive)
+# Probe GitHub SSH auth (non-interactive).
 set +e
 ssh -T git@github.com \
     -i "$SSH_KEY" \
@@ -92,7 +92,7 @@ fi
 # Repository Initialization
 ################################################################################
 
-# Initialize empty repository if not already initialized
+# Initialize empty repository if not already initialized.
 if [ ! -d "$GIT_DIR/objects" ]; then
   git init -b "$BRANCH"
 fi
@@ -101,36 +101,32 @@ fi
 # Git Configuration
 ################################################################################
 
-# Set identity for commits
+# Set identity for commits.
 git config user.name "gitwatch"
 git config user.email "gitwatch@dsm.local"
 
-# Configure SSH command to use specific key
+# Configure SSH command to use specific key.
 git config core.sshCommand "ssh -i $SSH_KEY -o StrictHostKeyChecking=accept-new -F /dev/null"
 
-# Disable GPG signing (non-interactive environment)
+# Disable GPG signing (non-interactive environment).
 git config commit.gpgsign false
 
-# Safety: only allow fast-forward pushes
+# Safety: only allow fast-forward pushes.
 git config push.ff only
 
-# Automatically prune deleted remote branches
+# Automatically prune deleted remote branches.
 git config fetch.prune true
 
 ################################################################################
-# Remote Setup
+# Basic Remote Setup
 ################################################################################
 
-# Ensure remote exists/URL is correct
+# Ensure remote exists/URL is correct.
 if git remote get-url "$REMOTE" >/dev/null 2>&1; then
   git remote set-url "$REMOTE" "$REMOTE_URL"
 else
   git remote add "$REMOTE" "$REMOTE_URL"
 fi
-
-################################################################################
-# Sync Check
-################################################################################
 
 # Always fetch first; if this fails, we cannot reason about safety.
 if ! git fetch "$REMOTE" "$BRANCH" >/dev/null 2>&1; then
@@ -142,12 +138,43 @@ fi
 upstream_ref="refs/remotes/$REMOTE/$BRANCH"
 upstream="$REMOTE/$BRANCH"
 
-# If the remote-tracking branch doesn't exist after fetch, it's a confirmed first-push.
+################################################################################
+# Empty Remote Handling
+################################################################################
+
+# If the remote-tracking branch is missing (first push).
 if ! git rev-parse --verify "$upstream_ref" >/dev/null 2>&1; then
   echo "Remote branch '$BRANCH' does not exist on '$REMOTE' (first push scenario)."
-  # Safe to let gitwatch push to create it.
+
+  # Ensure HEAD targets the local branch without checkout.
+  if ! git rev-parse --verify "refs/heads/$BRANCH" >/dev/null 2>&1; then
+    # Attach future commits to branch.
+    git symbolic-ref HEAD "refs/heads/$BRANCH"
+  fi
+
+  # If working tree is clean, create an empty initial commit to establish the branch.
+  if ! git status --porcelain | grep -q .; then
+    git commit --allow-empty -m "pre-flight: empty baseline ($(date '+%Y-%m-%d %H:%M:%S'))"
+  else
+    # Otherwise, commit actual content as baseline.
+    git add -A
+    git commit -m "pre-flight: initial baseline ($(date '+%Y-%m-%d %H:%M:%S'))"
+  fi
+
+  # Push and set upstream for future fast-forward-only pushes.
+  git push -u "$REMOTE" "$BRANCH" || {
+    echo "ERROR: initial push failed; baseline created locally but not pushed."
+    exit 1
+  }
+
+  echo "Initial baseline commit pushed to '$upstream'; Gitwatch will start on a clean slate."
+  echo "Pre-flight finished: local is aligned with '$upstream'; ready to start Gitwatch."
   exit 0
 fi
+
+################################################################################
+# Local Upstream Alignment
+################################################################################
 
 # If local has no commits (fresh local repo), align refs and index to remote
 # without modifying existing working files. This sets history/HEAD safely.
@@ -173,12 +200,14 @@ if ! git rev-parse --verify HEAD >/dev/null 2>&1; then
     echo "NOTE: Changes detected, will need to commit a baseline."
   else
     # Done aligning; from here, gitwatch can safely commit/push additive changes.
+    echo "Pre-flight finished: local is aligned with '$upstream'; ready to start Gitwatch."
     exit 0
   fi
 fi
 
-# If both local and remote have commits, ensure local contains remote.
-if git rev-parse --verify HEAD >/dev/null 2>&1; then
+# If both remote and local have commits, ensure local contains remote.
+if git rev-parse --verify "$upstream_ref" >/dev/null 2>&1 && \
+   git rev-parse --verify HEAD >/dev/null 2>&1; then
   # If remote is not an ancestor of local, local is behind -> do nothing (not safe).
   if ! git merge-base --is-ancestor "$upstream" HEAD 2>/dev/null; then
     echo "WARNING: Local branch is behind '$upstream' (remote has commits not in local)."
@@ -186,6 +215,10 @@ if git rev-parse --verify HEAD >/dev/null 2>&1; then
     exit 1
   fi
 fi
+
+################################################################################
+# Baseline Update
+################################################################################
 
 # If working tree differs from the remote-tracked content, push a baseline commit.
 if git status --porcelain | grep -q .; then
@@ -195,7 +228,7 @@ if git status --porcelain | grep -q .; then
   git add -A
 
   # Create a time-stamped baseline commit
-  git commit -m "pre-flight: commit baseline ($(date '+%Y-%m-%d %H:%M:%S'))"
+  git commit -m "pre-flight: baseline change ($(date '+%Y-%m-%d %H:%M:%S'))"
 
   # Push non-interactively; fast-forward-only is enforced by config (push.ff=only).
   git push "$REMOTE" "$BRANCH" || {
@@ -206,6 +239,10 @@ if git status --porcelain | grep -q .; then
   echo "Baseline commit pushed to '$upstream'; Gitwatch will start on a clean slate."
 fi
 
+################################################################################
+# Finish
+################################################################################
+
 # Local is at/after remote (fast-forward push guaranteed). Safe to proceed.
-echo "Pre-flight finished: local is aligned with '$upstream'; ready start Gitwatch."
+echo "Pre-flight finished: local is aligned with '$upstream'; ready to start Gitwatch."
 exit 0
